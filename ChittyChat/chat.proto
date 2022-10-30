@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "github.com/Divik-kid/Distri-Assignment03/ChittyChat";
+
+package chatserver;
+
+message FromClient {
+
+    string name = 1;
+    string body = 2;
+}
+
+message FromServer {
+
+    string name = 1;
+    string body = 2; 
+}
+
+service Services {
+
+    rpc ChatService(stream FromClient) returns (stream FromServer){};
+}
