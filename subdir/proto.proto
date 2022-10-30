@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "github.com/Divik-kid/BDSA_PROJECT/proto";
+
+package proto;
+
+message Post {
+    string text = 1;
+    string userName = 2;
+    int32 logTime = 3;
+}
+
+message PostReply {
+    string text = 1;
+    string userName = 2;
+    int32 logTime = 3;
+}
+
+service ChittyChat{
+    rpc sendPost (Post) returns (PostReply);
+}
+
