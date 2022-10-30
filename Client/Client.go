@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"grpcChatServer/chatserver"
 	"log"
 	"os"
 	"strings"
@@ -28,7 +29,7 @@ func main() {
 	conn, err := grpc.Dial(serverID, grpc.WithInsecure())
 
 	if err != nil {
-		log.Fatalf("Faile to conncet to gRPC server :: %v", err)
+		log.Fatalf("Failed to conncet to gRPC server :: %v", err)
 	}
 	defer conn.Close()
 
@@ -67,7 +68,16 @@ func (ch *clienthandle) clientConfig() {
 		log.Fatalf(" Failed to read from console :: %v", err)
 	}
 	ch.clientName = strings.Trim(name, "\r\n")
+	//send "has joined here"
+	ch.notifyJoin()
+}
 
+func (ch *clienthandle) notifyJoin() {
+	cMessage := &chatserver.FromClient{
+		Name: ch.clientName,
+		Body: "{has joined the chat}",
+	}
+	ch.stream.Send(cMessage)
 }
 
 // send message

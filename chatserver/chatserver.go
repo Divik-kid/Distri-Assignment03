@@ -1,4 +1,4 @@
-package ChittyChat
+package chatserver
 
 import (
 	"log"
@@ -46,6 +46,7 @@ func receiveFromStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, e
 	//implement a loop
 	for {
 		mssg, err := csi_.Recv()
+
 		if err != nil {
 			log.Printf("Error in receiving message from client :: %v", err)
 			errch_ <- err

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
+	"grpcChatServer/chatserver"
 )
 
 func main() {
@@ -26,9 +27,10 @@ func main() {
 	//gRPC server instance
 	grpcserver := grpc.NewServer()
 
+
 	//register ChatService
 	cs := chatserver.ChatServer{}
-	chatserver.RegisterServicesServer(grpcserver, &cs)
+	chatserver.RegisterServicesServer(grpcserver,&cs)
 
 	//grpc listen and serve
 	err = grpcserver.Serve(listen)
