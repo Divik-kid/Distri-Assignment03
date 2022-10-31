@@ -7,8 +7,8 @@ import (
 	"grpcChatServer/chatserver"
 	"log"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -69,10 +69,10 @@ func getConn(madeconn *grpc.ClientConn) {
 type clienthandle struct {
 	stream     chatserver.Services_ChatServiceClient
 	clientName string
+	clientTime string
 }
 
 func (ch *clienthandle) clientConfig() {
-
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("Your Name : ")
 	name, err := reader.ReadString('\n')
@@ -80,21 +80,26 @@ func (ch *clienthandle) clientConfig() {
 		log.Fatalf(" Failed to read from console :: %v", err)
 	}
 	ch.clientName = strings.Trim(name, "\r\n")
+	ch.clientTime = "0"
 	//send "has joined here"
 	ch.notifyJoin()
 }
 
 func (ch *clienthandle) notifyJoin() {
+
+	futureTime := lamportSend(ch.clientTime)
+	ch.clientTime = futureTime
+
 	cMessage := &chatserver.FromClient{
-		Name: ch.clientName,
-		Body: "{has joined the chat}",
+		Name:    ch.clientName,
+		Body:    "has joined the chat",
+		LogTime: futureTime,
 	}
 	ch.stream.Send(cMessage)
 }
 
 // send message
 func (ch *clienthandle) sendMessage() {
-
 	// create a loop
 	for {
 
@@ -105,20 +110,40 @@ func (ch *clienthandle) sendMessage() {
 		}
 		clientMessage = strings.Trim(clientMessage, "\r\n")
 
+		futureTime := lamportSend(ch.clientTime)
+
 		clientMessageBox := &chatserver.FromClient{
 			Name:    ch.clientName,
 			Body:    clientMessage,
-			LogTime: time.Now().GoString(),
+			LogTime: futureTime,
 		}
+		ch.clientTime = futureTime
 
 		err = ch.stream.Send(clientMessageBox)
 
 		if err != nil {
 			log.Printf("Error while sending message to server :: %v", err)
 		}
-
 	}
+}
 
+func lamportSend(a string) string {
+	ai, _ := strconv.Atoi(a)
+	return strconv.Itoa(ai + 1)
+}
+
+func lamportRecive(a, b string) string {
+	ai, _ := strconv.Atoi(a)
+	bi, _ := strconv.Atoi(b)
+	out := max(ai, bi) + 1
+	return strconv.Itoa(out)
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
 }
 
 // receive message
@@ -135,8 +160,9 @@ func (ch *clienthandle) receiveMessage() {
 			leave()
 		}
 
-		//print message to console
-		fmt.Printf("%s : %s \n", mssg.Name, mssg.Body+" ["+mssg.LogTime+"]")
+		ch.clientTime = lamportRecive(ch.clientTime, mssg.LogTime)
 
+		//print message to console
+		fmt.Printf("%s : %s \n", mssg.Name, mssg.Body+" ["+ch.clientTime+"]")
 	}
 }

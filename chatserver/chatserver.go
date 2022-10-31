@@ -3,6 +3,7 @@ package chatserver
 import (
 	"log"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -25,6 +26,7 @@ var clients = make(map[int]Services_ChatServiceServer, 10)
 var messageHandleObject = messageHandle{}
 
 type ChatServer struct {
+	serverTime string
 }
 
 // define ChatService
@@ -34,18 +36,16 @@ func (is *ChatServer) ChatService(csi Services_ChatServiceServer) error {
 	errch := make(chan error)
 
 	// receive messages - init a go routine
-	go receiveFromStream(csi, clientUniqueCode, errch)
+	go receiveFromStream(csi, clientUniqueCode, errch, is)
 
 	// send messages - init a go routine
-	go sendToStream(csi, clientUniqueCode, errch)
+	go sendToStream(csi, clientUniqueCode, errch, is)
 
 	return <-errch
-
 }
 
 // receive messages
-func receiveFromStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_ chan error) {
-
+func receiveFromStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_ chan error, is *ChatServer) {
 	//implement a loop
 	for {
 		mssg, err := csi_.Recv()
@@ -68,25 +68,45 @@ func receiveFromStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, e
 
 			messageHandleObject.mu.Lock()
 
+			reciveTime := lamportRecive(mssg.LogTime, is.serverTime)
+
 			messageHandleObject.MQue = append(messageHandleObject.MQue, messageUnit{
 				ClientName:        mssg.Name,
 				MessageBody:       mssg.Body,
 				MessageUniqueCode: rand.Intn(1e8),
 				ClientUniqueCode:  clientUniqueCode_,
-				//fix the time
-				LogTime: time.Now().GoString(),
+				LogTime:           reciveTime,
 			})
+			is.serverTime = reciveTime
 
 			log.Printf("%v", messageHandleObject.MQue[len(messageHandleObject.MQue)-1])
 
 			messageHandleObject.mu.Unlock()
-
 		}
 	}
 }
 
+func lamportSend(a string) string {
+	ai, _ := strconv.Atoi(a)
+	return strconv.Itoa(ai + 1)
+}
+
+func lamportRecive(a, b string) string {
+	ai, _ := strconv.Atoi(a)
+	bi, _ := strconv.Atoi(b)
+	out := max(ai, bi) + 1
+	return strconv.Itoa(out)
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
 // send message
-func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_ chan error) {
+func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_ chan error, is *ChatServer) {
 
 	//implement a loop
 	for {
@@ -107,6 +127,11 @@ func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_
 			senderName4Client := messageHandleObject.MQue[0].ClientName
 			message4Client := messageHandleObject.MQue[0].MessageBody
 			timeFromClient := messageHandleObject.MQue[0].LogTime
+
+      timeFromClient = lamportSend(timeFromClient)
+
+			is.serverTime = timeFromClient
+      
 			var keys []int
 			messageHandleObject.mu.Unlock()
 			//send the message to every client
@@ -166,12 +191,14 @@ func askToLeave(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_ c
 			senderName4Client := messageHandleObject.MQue[0].ClientName
 			timeFromClient := messageHandleObject.MQue[0].LogTime
 
+
 			messageHandleObject.mu.Unlock()
 
 			//send message to designated client (do not send to the same client)
 			if senderUniqueCode == clientUniqueCode_ {
 
 				err := csi_.Send(&FromServer{Name: senderName4Client, Body: "leave", LogTime: timeFromClient})
+
 
 				if err != nil {
 					errch_ <- err
