@@ -12,6 +12,7 @@ type messageUnit struct {
 	MessageBody       string
 	MessageUniqueCode int
 	ClientUniqueCode  int
+	LogTime           string
 }
 
 type messageHandle struct {
@@ -59,6 +60,8 @@ func receiveFromStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, e
 				MessageBody:       mssg.Body,
 				MessageUniqueCode: rand.Intn(1e8),
 				ClientUniqueCode:  clientUniqueCode_,
+				//fix the time
+				LogTime: time.Now().GoString(),
 			})
 
 			log.Printf("%v", messageHandleObject.MQue[len(messageHandleObject.MQue)-1])
@@ -90,13 +93,14 @@ func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_
 			senderUniqueCode := messageHandleObject.MQue[0].ClientUniqueCode
 			senderName4Client := messageHandleObject.MQue[0].ClientName
 			message4Client := messageHandleObject.MQue[0].MessageBody
+			timeFromClient := messageHandleObject.MQue[0].LogTime
 
 			messageHandleObject.mu.Unlock()
 
 			//send message to designated client (do not send to the same client)
 			if senderUniqueCode != clientUniqueCode_ {
 
-				err := csi_.Send(&FromServer{Name: senderName4Client, Body: message4Client})
+				err := csi_.Send(&FromServer{Name: senderName4Client, Body: message4Client, LogTime: timeFromClient})
 
 				if err != nil {
 					errch_ <- err
@@ -104,8 +108,9 @@ func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_
 
 				messageHandleObject.mu.Lock()
 
+				// delete the message at index 0 after sending to receiver
 				if len(messageHandleObject.MQue) > 1 {
-					messageHandleObject.MQue = messageHandleObject.MQue[1:] // delete the message at index 0 after sending to receiver
+					messageHandleObject.MQue = messageHandleObject.MQue[1:]
 				} else {
 					messageHandleObject.MQue = []messageUnit{}
 				}
