@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"grpcChatServer/chatserver"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -28,7 +30,7 @@ func main() {
 	conn, err := grpc.Dial(serverID, grpc.WithInsecure())
 
 	if err != nil {
-		log.Fatalf("Faile to conncet to gRPC server :: %v", err)
+		log.Fatalf("Failed to conncet to gRPC server :: %v", err)
 	}
 	defer conn.Close()
 
@@ -67,7 +69,16 @@ func (ch *clienthandle) clientConfig() {
 		log.Fatalf(" Failed to read from console :: %v", err)
 	}
 	ch.clientName = strings.Trim(name, "\r\n")
+	//send "has joined here"
+	ch.notifyJoin()
+}
 
+func (ch *clienthandle) notifyJoin() {
+	cMessage := &chatserver.FromClient{
+		Name: ch.clientName,
+		Body: "{has joined the chat}",
+	}
+	ch.stream.Send(cMessage)
 }
 
 // send message
@@ -84,8 +95,9 @@ func (ch *clienthandle) sendMessage() {
 		clientMessage = strings.Trim(clientMessage, "\r\n")
 
 		clientMessageBox := &chatserver.FromClient{
-			Name: ch.clientName,
-			Body: clientMessage,
+			Name:    ch.clientName,
+			Body:    clientMessage,
+			LogTime: time.Now().GoString(),
 		}
 
 		err = ch.stream.Send(clientMessageBox)
@@ -109,7 +121,7 @@ func (ch *clienthandle) receiveMessage() {
 		}
 
 		//print message to console
-		fmt.Printf("%s : %s \n", mssg.Name, mssg.Body)
+		fmt.Printf("%s : %s \n", mssg.Name, mssg.Body+" ["+mssg.LogTime+"]")
 
 	}
 }

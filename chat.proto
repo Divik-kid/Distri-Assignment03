@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/Divik-kid/Distri-Assignment03/ChittyChat";
+option go_package = "github.com/Divik-kid/Distri-Assignment03/chatserver";
 
 package chatserver;
 
@@ -8,12 +8,14 @@ message FromClient {
 
     string name = 1;
     string body = 2;
+    string logTime = 3;
 }
 
 message FromServer {
 
     string name = 1;
-    string body = 2; 
+    string body = 2;
+    string logTime = 3;
 }
 
 service Services {
