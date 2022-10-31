@@ -128,10 +128,10 @@ func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_
 			message4Client := messageHandleObject.MQue[0].MessageBody
 			timeFromClient := messageHandleObject.MQue[0].LogTime
 
-      timeFromClient = lamportSend(timeFromClient)
+			timeFromClient = lamportSend(timeFromClient)
 
 			is.serverTime = timeFromClient
-      
+
 			var keys []int
 			messageHandleObject.mu.Unlock()
 			//send the message to every client
@@ -191,14 +191,12 @@ func askToLeave(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_ c
 			senderName4Client := messageHandleObject.MQue[0].ClientName
 			timeFromClient := messageHandleObject.MQue[0].LogTime
 
-
 			messageHandleObject.mu.Unlock()
 
 			//send message to designated client (do not send to the same client)
 			if senderUniqueCode == clientUniqueCode_ {
-
+				clients[senderUniqueCode] = nil
 				err := csi_.Send(&FromServer{Name: senderName4Client, Body: "leave", LogTime: timeFromClient})
-
 
 				if err != nil {
 					errch_ <- err
