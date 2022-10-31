@@ -28,7 +28,7 @@ func main() {
 
 	//connect to grpc server
 	conn, err := grpc.Dial(serverID, grpc.WithInsecure())
-
+	getConn(conn)
 	if err != nil {
 		log.Fatalf("Failed to conncet to gRPC server :: %v", err)
 	}
@@ -49,9 +49,20 @@ func main() {
 	go ch.receiveMessage()
 
 	//blocker
+
 	bl := make(chan bool)
 	<-bl
 
+}
+
+func leave() {
+	k1.Close()
+}
+
+var k1 *grpc.ClientConn = nil
+
+func getConn(madeconn *grpc.ClientConn) {
+	k1 = madeconn
 }
 
 // clienthandle
@@ -117,7 +128,11 @@ func (ch *clienthandle) receiveMessage() {
 	for {
 		mssg, err := ch.stream.Recv()
 		if err != nil {
-			log.Printf("Error in receiving message from server :: %v", err)
+
+		}
+
+		if mssg.Body == "leave" && mssg.Name == ch.clientName {
+			leave()
 		}
 
 		//print message to console
