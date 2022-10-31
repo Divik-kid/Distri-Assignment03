@@ -3,7 +3,6 @@ package chatserver
 import (
 	"log"
 	"math/rand"
-	"net"
 	"sync"
 	"time"
 )
@@ -21,7 +20,7 @@ type messageHandle struct {
 	mu   sync.Mutex
 }
 
-var clients = make(map[string]net.Conn)
+var clients = make(map[int]Services_ChatServiceServer, 10)
 
 var messageHandleObject = messageHandle{}
 
@@ -50,6 +49,11 @@ func receiveFromStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, e
 	//implement a loop
 	for {
 		mssg, err := csi_.Recv()
+		_, ok := clients[clientUniqueCode_]
+		//if new user
+		if ok == false {
+			clients[clientUniqueCode_] = csi_
+		}
 
 		if err != nil {
 			log.Printf("Error in receiving message from client :: %v", err)
@@ -103,30 +107,35 @@ func sendToStream(csi_ Services_ChatServiceServer, clientUniqueCode_ int, errch_
 			senderName4Client := messageHandleObject.MQue[0].ClientName
 			message4Client := messageHandleObject.MQue[0].MessageBody
 			timeFromClient := messageHandleObject.MQue[0].LogTime
-
+			var keys []int
 			messageHandleObject.mu.Unlock()
+			//send the message to every client
+			for k, element := range clients {
+				if clients[senderUniqueCode] != element {
+					keys = append(keys, k)
 
-			//send message to designated client (do not send to the same client)
+					//send message to designated client (do not send to the same client)
+					//if clients[senderUniqueCode] != keys {
 
-			if senderUniqueCode != clientUniqueCode_ {
+					err := element.Send(&FromServer{Name: senderName4Client, Body: message4Client, LogTime: timeFromClient})
 
-				err := csi_.Send(&FromServer{Name: senderName4Client, Body: message4Client, LogTime: timeFromClient})
+					if err != nil {
+						errch_ <- err
+					}
 
-				if err != nil {
-					errch_ <- err
+					messageHandleObject.mu.Lock()
+
+					// delete the message at index 0 after sending to receiver
+					if len(messageHandleObject.MQue) > 1 {
+						messageHandleObject.MQue = messageHandleObject.MQue[1:]
+					} else {
+						messageHandleObject.MQue = []messageUnit{}
+					}
+
+					messageHandleObject.mu.Unlock()
+
+					//}
 				}
-
-				messageHandleObject.mu.Lock()
-
-				// delete the message at index 0 after sending to receiver
-				if len(messageHandleObject.MQue) > 1 {
-					messageHandleObject.MQue = messageHandleObject.MQue[1:]
-				} else {
-					messageHandleObject.MQue = []messageUnit{}
-				}
-
-				messageHandleObject.mu.Unlock()
-
 			}
 
 		}
